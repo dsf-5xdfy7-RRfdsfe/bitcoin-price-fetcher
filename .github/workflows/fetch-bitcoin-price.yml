@@ -1,0 +1,55 @@
+name: Fetch Bitcoin Price
+
+on:
+  schedule:
+    # Runs every 5 minutes starting at 00:05, 00:10, 00:15, etc.
+    - cron: '5,10,15,20,25,30,35,40,45,50,55 * * * *'  # UTC time
+
+jobs:
+  fetch_price:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          pip install requests psycopg2-binary  # You may need additional libraries
+
+      - name: Fetch Bitcoin price and store in Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          import requests
+          import psycopg2
+          import os
+
+          # Fetch Bitcoin price from CoinGecko API
+          url = 'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd'
+          response = requests.get(url)
+          price = response.json().get('bitcoin', {}).get('usd')
+
+          if price:
+              # Connect to Supabase using service role key (for database writes)
+              conn = psycopg2.connect(
+                  dbname="postgres",
+                  user="postgres",
+                  password=os.getenv('SUPABASE_SERVICE_ROLE_KEY'),
+                  host=os.getenv('SUPABASE_URL').replace('https://', '').split('/')[0],
+                  port="5432"
+              )
+              cursor = conn.cursor()
+              cursor.execute("INSERT INTO bitcoin_prices (price, timestamp) VALUES (%s, NOW())", (price,))
+              conn.commit()
+              cursor.close()
+              conn.close()
+          else:
+              raise Exception('Failed to fetch Bitcoin price')
