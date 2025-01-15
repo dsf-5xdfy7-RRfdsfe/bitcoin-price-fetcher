@@ -20,35 +20,27 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install requests psycopg2-binary  # You may need additional libraries
+          pip install requests psycopg2-binary
 
       - name: Fetch Bitcoin price and store in Supabase
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          import requests
-          import psycopg2
-          import os
-
-          # Fetch Bitcoin price from CoinGecko API
-          url = 'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd'
-          response = requests.get(url)
-          price = response.json().get('bitcoin', {}).get('usd')
-
-          if price:
-              # Connect to Supabase using service role key (for database writes)
-              conn = psycopg2.connect(
-                  dbname="postgres",
-                  user="postgres",
-                  password=os.getenv('SUPABASE_SERVICE_ROLE_KEY'),
-                  host=os.getenv('SUPABASE_URL').replace('https://', '').split('/')[0],
-                  port="5432"
-              )
-              cursor = conn.cursor()
-              cursor.execute("INSERT INTO bitcoin_prices (price, timestamp) VALUES (%s, NOW())", (price,))
-              conn.commit()
-              cursor.close()
-              conn.close()
-          else:
-              raise Exception('Failed to fetch Bitcoin price')
+          echo "import requests" > fetch_price.py
+          echo "import psycopg2" >> fetch_price.py
+          echo "import os" >> fetch_price.py
+          echo "url = 'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd'" >> fetch_price.py
+          echo "response = requests.get(url)" >> fetch_price.py
+          echo "price = response.json().get('bitcoin', {}).get('usd')" >> fetch_price.py
+          echo "if price:" >> fetch_price.py
+          echo "    conn = psycopg2.connect(dbname='postgres', user='postgres', password=os.getenv('SUPABASE_SERVICE_ROLE_KEY'), host=os.getenv('SUPABASE_URL').replace('https://', '').split('/')[0], port='5432')" >> fetch_price.py
+          echo "    cursor = conn.cursor()" >> fetch_price.py
+          echo "    cursor.execute('INSERT INTO bitcoin_prices (price, timestamp) VALUES (%s, NOW())', (price,))" >> fetch_price.py
+          echo "    conn.commit()" >> fetch_price.py
+          echo "    cursor.close()" >> fetch_price.py
+          echo "    conn.close()" >> fetch_price.py
+          echo "else:" >> fetch_price.py
+          echo "    raise Exception('Failed to fetch Bitcoin price')" >> fetch_price.py
+          
+          python3 fetch_price.py
